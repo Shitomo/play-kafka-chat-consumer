@@ -1,0 +1,35 @@
+name: build-workflow
+
+on:
+  push:
+    branches:
+      - "develop"
+      - "master"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_REPO: shitomo/play-kafka-consumer
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+      FORCE_COLOR: 1
+      TZ: "Asia/Tokyo"
+    outputs:
+      image_tag: ${{ steps.ko_build.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: Install ko
+        run: go install github.com/google/ko@latest
+      - name: ko login
+        run: ko login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD index.docker.io
+      - id: ko_build
+        name: ko build
+        run: |
+          IMAGE_TAG=v`date +%Y%m%d%H%M%S`
+          echo "::set-output name=image_tag::${IMAGE_TAG}"
+          KO_DOCKER_REPO=$DOCKERHUB_REPO ko build . --sbom=none --bare --tags=${IMAGE_TAG} --platform=all
